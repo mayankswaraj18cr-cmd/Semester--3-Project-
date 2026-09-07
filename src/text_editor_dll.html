@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Text Editor Buffer — Doubly Linked List</title>
+<style>
+  :root{
+    --bg:#0d1520;
+    --panel:#141f30;
+    --panel2:#182640;
+    --accent:#c65fd6;
+    --accent2:#7ee0c3;
+    --text:#e8edf5;
+    --muted:#8ea0bd;
+    --border:#233350;
+    --danger:#ff6b6b;
+    --node-bg:#1c2c48;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:0; max-width:480px; margin:0 auto;
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+  }
+  header{
+    padding:22px 18px 16px; text-align:center;
+    background:linear-gradient(160deg,#152238,#0d1520);
+    border-bottom:1px solid var(--border);
+  }
+  header h1{margin:0 0 4px; font-size:18px; letter-spacing:.3px;}
+  header p{margin:0; color:var(--muted); font-size:12.5px;}
+  .badges{display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
+  .badge{
+    font-size:10.5px; padding:4px 9px; border-radius:20px;
+    background:var(--panel2); color:var(--accent2); border:1px solid var(--border);
+  }
+  main{padding:16px;}
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:14px;
+    padding:16px; margin-bottom:14px;
+  }
+  .card h2{
+    font-size:13.5px; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--accent2); margin:0 0 12px;
+  }
+  .editor-display{
+    background:#0a1220; border:1px solid var(--border); border-radius:10px;
+    padding:14px; min-height:70px; font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:16px; line-height:1.6; word-break:break-all; margin-bottom:12px;
+  }
+  .cursor{
+    display:inline-block; width:2px; height:18px; background:var(--accent);
+    vertical-align:middle; animation:blink 1s step-end infinite;
+  }
+  @keyframes blink{50%{opacity:0;}}
+  .char-box{
+    display:inline-block; padding:1px 1px; border-radius:3px;
+  }
+  .input-row{display:flex; gap:8px; margin-bottom:10px;}
+  input[type=text]{
+    flex:1; padding:11px; border-radius:9px; border:1px solid var(--border);
+    background:#0f1929; color:var(--text); font-size:15px; min-width:0;
+  }
+  input[type=text]:focus{outline:2px solid var(--accent); border-color:var(--accent);}
+  button{
+    -webkit-appearance:none; border:none; cursor:pointer;
+    font-family:inherit; font-weight:600;
+  }
+  .btn-primary{
+    padding:11px 16px; border-radius:9px; background:var(--accent);
+    color:#1c0722; font-size:14px; white-space:nowrap;
+  }
+  .btn-primary:active{transform:scale(.97);}
+  .ctrl-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px;}
+  .btn-ctrl{
+    padding:11px; border-radius:9px; background:var(--panel2); color:var(--text);
+    font-size:13px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .btn-ctrl:active{transform:scale(.97);}
+  .btn-danger{color:var(--danger);}
+  .status-row{
+    display:flex; justify-content:space-between; font-size:11.5px; color:var(--muted);
+    margin-top:10px; padding-top:10px; border-top:1px solid var(--border);
+  }
+  .dll-viz{overflow-x:auto; -webkit-overflow-scrolling:touch; padding:8px 0;}
+  .dll-track{display:flex; align-items:center; gap:0; min-width:max-content; padding:4px 8px;}
+  .dll-node{
+    display:flex; flex-direction:column; align-items:center; background:var(--node-bg);
+    border:1px solid var(--border); border-radius:8px; padding:6px 10px; min-width:34px;
+    font-family:ui-monospace,Menlo,Consolas,monospace; position:relative;
+  }
+  .dll-node.cursor-node{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent);}
+  .dll-node .ch{font-size:15px; font-weight:700;}
+  .dll-arrows{color:var(--muted); font-size:12px; padding:0 4px; white-space:nowrap;}
+  .steps{font-size:12px; color:var(--muted); line-height:1.7;}
+  pre.code{
+    background:#0a1220; border:1px solid var(--border); border-radius:10px;
+    padding:12px; font-size:10.5px; line-height:1.55; overflow-x:auto;
+    font-family:ui-monospace,Menlo,Consolas,monospace; color:#c9d6ea;
+  }
+  .kw{color:#7ee0c3;} .tp{color:#c65fd6;} .cm{color:#5b7291;} .fn{color:#ffd479;}
+  .toggle-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .pill-btn{
+    font-size:11px; padding:5px 10px; border-radius:8px; background:var(--panel2);
+    color:var(--accent2); border:1px solid var(--border);
+  }
+  table.spec{width:100%; border-collapse:collapse; font-size:12.5px;}
+  table.spec td{padding:7px 4px; border-bottom:1px solid var(--border);}
+  table.spec td:first-child{color:var(--muted);}
+  table.spec td:last-child{text-align:right; font-weight:600;}
+  .app-list{list-style:none; padding:0; margin:0; display:flex; flex-wrap:wrap; gap:6px;}
+  .app-list li{
+    font-size:11.5px; padding:6px 10px; border-radius:8px; background:var(--panel2);
+    color:var(--text); border:1px solid var(--border);
+  }
+  footer{
+    text-align:center; padding:18px 16px 26px; font-size:11px; color:var(--muted);
+    border-top:1px solid var(--border);
+  }
+  footer a{color:var(--accent);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Text Editor Buffer</h1>
+  <p>Data Structures (C/C++) — Doubly Linked List &nbsp;•&nbsp; GSSIPU Semester 3</p>
+  <div class="badges">
+    <span class="badge">Console-Based Software Project</span>
+    <span class="badge">Intermediate</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>▸ Live Editor</h2>
+    <div class="editor-display" id="editorDisplay"></div>
+
+    <div class="input-row">
+      <input type="text" id="charInput" maxlength="1" placeholder="Type a character…">
+      <button class="btn-primary" id="insertBtn">Insert</button>
+    </div>
+
+    <div class="ctrl-grid">
+      <button class="btn-ctrl" id="backBtn">◂ Move Backward</button>
+      <button class="btn-ctrl" id="fwdBtn">Move Forward ▸</button>
+      <button class="btn-ctrl btn-danger" id="deleteBtn">⌫ Delete at Cursor</button>
+      <button class="btn-ctrl" id="resetBtn">↺ Reset Buffer</button>
+    </div>
+
+    <div class="status-row">
+      <span id="statusLen">Length: 0</span>
+      <span id="statusPos">Cursor: HEAD</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>▸ Doubly Linked List Visualization</h2>
+    <div class="dll-viz">
+      <div class="dll-track" id="dllTrack"></div>
+    </div>
+    <div class="steps" id="dllLegend">Each node stores a character, a link to the previous node, and a link to the next node. The highlighted node marks the current cursor position.</div>
+  </div>
+
+  <div class="card">
+    <h2>▸ Component Roles</h2>
+    <table class="spec">
+      <tr><td>Node</td><td>Stores character</td></tr>
+      <tr><td>Prev Pointer</td><td>Move left</td></tr>
+      <tr><td>Next Pointer</td><td>Move right</td></tr>
+      <tr><td>Head Pointer</td><td>First character</td></tr>
+      <tr><td>Tail Pointer</td><td>Last character</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>▸ Time Complexity</h2>
+    <table class="spec">
+      <tr><td>Insert</td><td>O(1)</td></tr>
+      <tr><td>Delete</td><td>O(n)</td></tr>
+      <tr><td>Search</td><td>O(n)</td></tr>
+      <tr><td>Traverse</td><td>O(n)</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="toggle-row">
+      <h2 style="margin:0;">▸ C++ Source Code</h2>
+      <button class="pill-btn" id="toggleCodeBtn">Show</button>
+    </div>
+    <div id="codeBox" style="display:none;">
+<pre class="code"><span class="cm">#include</span> <span class="tp">&lt;iostream&gt;</span>
+<span class="kw">using namespace</span> std;
+
+<span class="kw">struct</span> Node
+{
+    <span class="tp">char</span> data;
+    Node* prev;
+    Node* next;
+};
+
+Node* head=<span class="tp">NULL</span>;
+Node* tail=<span class="tp">NULL</span>;
+
+<span class="tp">void</span> <span class="fn">insertChar</span>(<span class="tp">char</span> ch)
+{
+    Node* temp=<span class="kw">new</span> Node();
+
+    temp->data=ch;
+    temp->next=<span class="tp">NULL</span>;
+    temp->prev=tail;
+
+    <span class="kw">if</span>(head==<span class="tp">NULL</span>)
+        head=temp;
+    <span class="kw">else</span>
+        tail->next=temp;
+
+    tail=temp;
+}
+
+<span class="tp">void</span> <span class="fn">display</span>()
+{
+    Node* temp=head;
+
+    <span class="kw">while</span>(temp!=<span class="tp">NULL</span>)
+    {
+        cout&lt;&lt;temp->data;
+        temp=temp->next;
+    }
+
+    cout&lt;&lt;endl;
+}
+
+<span class="tp">int</span> <span class="fn">main</span>()
+{
+    insertChar(<span class="cm">'H'</span>);
+    insertChar(<span class="cm">'E'</span>);
+    insertChar(<span class="cm">'L'</span>);
+    insertChar(<span class="cm">'L'</span>);
+    insertChar(<span class="cm">'O'</span>);
+
+    display();
+
+    <span class="kw">return</span> 0;
+}</pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>▸ Applications</h2>
+    <ul class="app-list">
+      <li>Text Editors</li>
+      <li>Browser History</li>
+      <li>Music Players</li>
+      <li>Undo-Redo Systems</li>
+      <li>Navigation Systems</li>
+    </ul>
+  </div>
+
+</main>
+
+<footer>
+  Text Editor Buffer Using Doubly Linked List — Data Structures Mini Project<br>
+  GSSIPU Semester 3 · Mayank Swaraj<br>
+  <a href="https://github.com/mayankswaraj18cr-cmd" target="_blank">GitHub</a> ·
+  <a href="https://linkedin.com/in/mayank-swaraj-4b84b6410" target="_blank">LinkedIn</a>
+</footer>
+
+<script>
+// Doubly linked list simulation using a JS array (mirrors node/prev/next conceptually)
+let buffer = ['H','E','L','L','O'];
+let cursor = buffer.length; // cursor position = index where next insert happens; buffer.length = tail (end)
+
+const editorDisplay = document.getElementById('editorDisplay');
+const dllTrack = document.getElementById('dllTrack');
+const statusLen = document.getElementById('statusLen');
+const statusPos = document.getElementById('statusPos');
+const charInput = document.getElementById('charInput');
+
+function render(){
+  // editor display with blinking cursor at position
+  editorDisplay.innerHTML = '';
+  for(let i=0;i<buffer.length;i++){
+    if(i === cursor){
+      const c = document.createElement('span');
+      c.className = 'cursor';
+      editorDisplay.appendChild(c);
+    }
+    const span = document.createElement('span');
+    span.className = 'char-box';
+    span.textContent = buffer[i];
+    editorDisplay.appendChild(span);
+  }
+  if(cursor === buffer.length){
+    const c = document.createElement('span');
+    c.className = 'cursor';
+    editorDisplay.appendChild(c);
+  }
+  if(buffer.length === 0 && cursor === 0){
+    // just cursor already added above
+  }
+
+  // DLL visualization
+  dllTrack.innerHTML = '';
+  if(buffer.length === 0){
+    dllTrack.innerHTML = '<span style="color:#8ea0bd; font-size:12px;">(empty list — head = tail = NULL)</span>';
+  } else {
+    buffer.forEach((ch, i) => {
+      const node = document.createElement('div');
+      node.className = 'dll-node' + (i === cursor ? ' cursor-node' : '');
+      node.innerHTML = `<span class="ch">${ch}</span>`;
+      dllTrack.appendChild(node);
+      if(i < buffer.length - 1){
+        const arrow = document.createElement('span');
+        arrow.className = 'dll-arrows';
+        arrow.textContent = '⇄';
+        dllTrack.appendChild(arrow);
+      }
+    });
+    if(cursor === buffer.length){
+      const arrow = document.createElement('span');
+      arrow.className = 'dll-arrows';
+      arrow.textContent = '⇄';
+      dllTrack.appendChild(arrow);
+      const node = document.createElement('div');
+      node.className = 'dll-node cursor-node';
+      node.innerHTML = `<span class="ch" style="opacity:.4;">·</span>`;
+      dllTrack.appendChild(node);
+    }
+  }
+
+  statusLen.textContent = `Length: ${buffer.length}`;
+  statusPos.textContent = cursor === 0 ? 'Cursor: HEAD' : (cursor === buffer.length ? 'Cursor: TAIL (end)' : `Cursor: index ${cursor}`);
+}
+
+document.getElementById('insertBtn').addEventListener('click', () => {
+  const val = charInput.value;
+  if(!val) return;
+  buffer.splice(cursor, 0, val);
+  cursor++;
+  charInput.value = '';
+  render();
+  charInput.focus();
+});
+
+charInput.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') document.getElementById('insertBtn').click();
+});
+
+document.getElementById('backBtn').addEventListener('click', () => {
+  if(cursor > 0) cursor--;
+  render();
+});
+
+document.getElementById('fwdBtn').addEventListener('click', () => {
+  if(cursor < buffer.length) cursor++;
+  render();
+});
+
+document.getElementById('deleteBtn').addEventListener('click', () => {
+  if(cursor > 0){
+    buffer.splice(cursor-1, 1);
+    cursor--;
+    render();
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  buffer = ['H','E','L','L','O'];
+  cursor = buffer.length;
+  render();
+});
+
+document.getElementById('toggleCodeBtn').addEventListener('click', () => {
+  const box = document.getElementById('codeBox');
+  const btn = document.getElementById('toggleCodeBtn');
+  const show = box.style.display === 'none';
+  box.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? 'Hide' : 'Show';
+});
+
+render();
+</script>
+
+</body>
+</html>
